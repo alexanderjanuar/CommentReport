@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from datetime import date
+import hmac
 import json
 import os
 from pathlib import Path
@@ -41,6 +42,7 @@ SCOPE = [
 load_dotenv(dotenv_path=PARENT_ENV if PARENT_ENV.exists() else None)
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 deepseek_client = (
     OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
     if DEEPSEEK_API_KEY
@@ -366,6 +368,49 @@ def render_metric(label: str, value: str) -> None:
     )
 
 
+def is_authenticated() -> bool:
+    return bool(st.session_state.get("is_authenticated", False))
+
+
+def handle_password_login() -> None:
+    attempted_password = st.session_state.get("sidebar_password", "")
+    if hmac.compare_digest(attempted_password, APP_PASSWORD):
+        st.session_state["is_authenticated"] = True
+        st.session_state["show_welcome_dialog"] = True
+        st.session_state.pop("password_error", None)
+        st.session_state["sidebar_password"] = ""
+        st.rerun()
+
+    st.session_state["password_error"] = "Password salah."
+
+
+@st.dialog("Panduan Singkat")
+def show_welcome_dialog() -> None:
+    st.write(
+        "Selamat datang di dashboard laporan komentar. "
+        "Halaman ini membantu Anda melihat ringkasan komentar, memantau akun target, dan membaca analisis per postingan."
+    )
+    st.markdown(
+        """
+        **Cara pakai cepat**
+
+        1. Pilih `Rentang tanggal` di sidebar untuk menentukan periode data yang ingin dilihat.
+        2. Lihat kartu ringkasan di bagian atas untuk mengetahui total komentar, jumlah akun target, dan jumlah link post.
+        3. Buka tab `Dashboard` untuk melihat distribusi komentar per akun target.
+        4. Buka tab `Analisis per Postingan` lalu pilih akun target untuk melihat detail postingan, perbandingan komentar, dan sentimen.
+        5. Buka tab `Raw Data` jika ingin melihat data mentah atau mengunduh CSV.
+
+        **Tips**
+
+        - Gunakan tombol `Muat Ulang` di sidebar jika data terbaru belum tampil.
+        - Jika detail Apify atau sentimen belum muncul, tunggu sebentar lalu coba muat ulang lagi.
+        """
+    )
+    if st.button("Saya mengerti", use_container_width=True):
+        st.session_state["show_welcome_dialog"] = False
+        st.rerun()
+
+
 st.markdown(
     """
     <div class="hero">
@@ -382,6 +427,41 @@ credentials_path = str(DEFAULT_CREDENTIALS)
 spreadsheet_key = DEFAULT_COMMENT_SHEET_KEY
 worksheet_index = 0
 apify_token = APIFY_API_TOKEN
+
+with st.sidebar:
+    st.subheader("Akses Dashboard")
+    if not APP_PASSWORD:
+        st.error("APP_PASSWORD belum dikonfigurasi di environment atau Streamlit secrets.")
+    elif not is_authenticated():
+        st.text_input(
+            "Password",
+            type="password",
+            key="sidebar_password",
+            on_change=handle_password_login,
+        )
+        if st.session_state.get("password_error"):
+            st.error(st.session_state["password_error"])
+    else:
+        st.success("Akses diberikan.")
+        if st.button("Lihat panduan", use_container_width=True):
+            st.session_state["show_welcome_dialog"] = True
+            st.rerun()
+        if st.button("Logout", use_container_width=True):
+            st.session_state["is_authenticated"] = False
+            st.session_state.pop("password_error", None)
+            st.session_state["show_welcome_dialog"] = False
+            st.rerun()
+
+if not APP_PASSWORD:
+    st.warning("Dashboard dikunci, tetapi APP_PASSWORD belum diset.")
+    st.stop()
+
+if not is_authenticated():
+    st.warning("Masukkan password yang benar di sidebar untuk membuka dashboard.")
+    st.stop()
+
+if st.session_state.get("show_welcome_dialog", False):
+    show_welcome_dialog()
 
 with st.sidebar:
     refresh = st.button("Muat Ulang", use_container_width=True)
@@ -421,31 +501,11 @@ with st.sidebar:
     else:
         start_date, end_date = min_date, max_date
 
-    target_options = sorted([x for x in comments_df["Username Target"].unique() if x])
-    selected_targets = st.multiselect(
-        "Username target",
-        options=target_options,
-        default=[],
-    )
-
-    search_text = st.text_input("Cari komentar / username", value="")
-
 filtered_df = comments_df.copy()
 filtered_df = filtered_df[filtered_df["Tanggal"].notna()]
 filtered_df = filtered_df[
     (filtered_df["Tanggal"] >= start_date) & (filtered_df["Tanggal"] <= end_date)
 ]
-
-if selected_targets:
-    filtered_df = filtered_df[filtered_df["Username Target"].isin(selected_targets)]
-
-if search_text.strip():
-    q = search_text.strip().lower()
-    filtered_df = filtered_df[
-        filtered_df["Komentar"].str.lower().str.contains(q, na=False)
-        | filtered_df["Username"].str.lower().str.contains(q, na=False)
-        | filtered_df["Username Target"].str.lower().str.contains(q, na=False)
-    ]
 
 filtered_df = filtered_df.sort_values("Timestamp Parsed", ascending=False, na_position="last")
 
