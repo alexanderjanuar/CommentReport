@@ -137,7 +137,22 @@ def parse_datetime(series: pd.Series) -> pd.Series:
     return parsed.dt.tz_localize(None)
 
 
+def get_service_account_info() -> dict | None:
+    if "gcp_service_account" not in st.secrets:
+        return None
+
+    secret_section = st.secrets["gcp_service_account"]
+    if hasattr(secret_section, "to_dict"):
+        return secret_section.to_dict()
+    return dict(secret_section)
+
+
 def authorize_client(credentials_path: Path):
+    service_account_info = get_service_account_info()
+    if service_account_info:
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, SCOPE)
+        return gspread.authorize(creds)
+
     creds = ServiceAccountCredentials.from_json_keyfile_name(str(credentials_path), SCOPE)
     return gspread.authorize(creds)
 
