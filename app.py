@@ -199,7 +199,7 @@ def fetch_post_detail_from_apify(token: str, post_url: str, target_username: str
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def scrape_post_comments_from_apify(token: str, post_url: str, max_comments: int = 200) -> list[dict]:
+def scrape_post_comments_from_apify(token: str, post_url: str, max_comments: int = 1000) -> list[dict]:
     if not APIFY_AVAILABLE:
         raise RuntimeError("apify-client belum terpasang. Jalankan: pip install apify-client")
     if not token:
@@ -875,7 +875,7 @@ with tab_analysis:
                         public_comments = scrape_post_comments_from_apify(
                             apify_token,
                             selected_post_url,
-                            max_comments=200,
+                            max_comments=1000,
                         )
                         comment_payload = json.dumps(public_comments, ensure_ascii=False)
                         sentiment_labels = analyze_comment_sentiments_deepseek(
