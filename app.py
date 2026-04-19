@@ -120,6 +120,80 @@ st.markdown(
         line-height: 1.05;
     }
 
+    div[data-testid="stDataFrame"] {
+        width: 100%;
+    }
+
+    @media (max-width: 900px) {
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1.5rem;
+            padding-left: 0.9rem;
+            padding-right: 0.9rem;
+        }
+
+        .hero {
+            padding: 1rem;
+            border-radius: 16px;
+        }
+
+        .hero-title {
+            font-size: 1.45rem;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .metric-box {
+            padding: 0.9rem;
+            border-radius: 14px;
+        }
+
+        .metric-label {
+            font-size: 0.76rem;
+        }
+
+        .metric-value {
+            font-size: 1.45rem;
+        }
+
+        button[kind="secondary"],
+        button[kind="primary"] {
+            min-height: 2.75rem;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        .hero-title {
+            font-size: 1.25rem;
+        }
+
+        .hero-subtitle {
+            font-size: 0.88rem;
+        }
+
+        div[data-baseweb="tab-list"] {
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        button[data-baseweb="tab"] {
+            white-space: normal;
+            height: auto;
+            min-height: 2.5rem;
+            padding-top: 0.45rem;
+            padding-bottom: 0.45rem;
+        }
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -376,7 +450,9 @@ def handle_password_login() -> None:
     attempted_password = st.session_state.get("sidebar_password", "")
     if hmac.compare_digest(attempted_password, APP_PASSWORD):
         st.session_state["is_authenticated"] = True
-        st.session_state["show_welcome_dialog"] = True
+        if not st.session_state.get("welcome_dialog_seen", False):
+            st.session_state["show_welcome_dialog"] = True
+            st.session_state["welcome_dialog_seen"] = True
         st.session_state.pop("password_error", None)
         st.session_state["sidebar_password"] = ""
         st.rerun()
@@ -450,6 +526,7 @@ with st.sidebar:
             st.session_state["is_authenticated"] = False
             st.session_state.pop("password_error", None)
             st.session_state["show_welcome_dialog"] = False
+            st.session_state["welcome_dialog_seen"] = False
             st.rerun()
 
 if not APP_PASSWORD:
@@ -461,6 +538,7 @@ if not is_authenticated():
     st.stop()
 
 if st.session_state.get("show_welcome_dialog", False):
+    st.session_state["show_welcome_dialog"] = False
     show_welcome_dialog()
 
 with st.sidebar:
@@ -649,7 +727,7 @@ with tab_dashboard:
 
 with tab_analysis:
     st.subheader("Analisis per Postingan")
-    st.caption("Pilih username target Instagram untuk memuat semua postingan yang tercatat dari akun tersebut.")
+    st.caption("Pilih username target Instagram, lalu tekan tombol untuk memuat analisis postingan.")
 
     target_post_options = (
         filtered_df[filtered_df["Username Target"] != ""]
@@ -678,6 +756,36 @@ with tab_analysis:
             key="selected_target_label",
         )
         selected_target_username = label_to_target[selected_target_label]
+        loaded_target_username = st.session_state.get("analysis_loaded_target")
+
+        action_cols = st.columns([1, 1, 2])
+        with action_cols[0]:
+            load_analysis = st.button(
+                "Tampilkan analisis",
+                key="load_selected_target_analysis",
+                use_container_width=True,
+            )
+        with action_cols[1]:
+            refresh_analysis = st.button(
+                "Muat ulang detail",
+                key="refresh_selected_target_analysis",
+                use_container_width=True,
+            )
+
+        if load_analysis:
+            st.session_state["analysis_loaded_target"] = selected_target_username
+            loaded_target_username = selected_target_username
+
+        if refresh_analysis:
+            fetch_post_detail_from_apify.clear()
+            scrape_post_comments_from_apify.clear()
+            analyze_comment_sentiments_deepseek.clear()
+            st.session_state["analysis_loaded_target"] = selected_target_username
+            loaded_target_username = selected_target_username
+
+        if loaded_target_username != selected_target_username:
+            st.info("Tekan `Tampilkan analisis` untuk memuat data postingan dari akun target yang dipilih.")
+            st.stop()
 
         target_posts = (
             filtered_df[
@@ -692,9 +800,6 @@ with tab_analysis:
             .drop_duplicates()
             .reset_index(drop=True)
         )
-
-        if st.button("Muat ulang detail Apify", key="fetch_post_detail", use_container_width=False):
-            fetch_post_detail_from_apify.clear()
 
         for idx, row in unique_posts.iterrows():
             selected_post_url = row["Link Post"]
