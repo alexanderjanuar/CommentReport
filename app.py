@@ -166,6 +166,12 @@ st.markdown(
         }
     }
 
+    /* Hide GitHub-related toolbar buttons */
+    [data-testid="stToolbarActions"] { display: none !important; }
+    .stDeployButton { display: none !important; }
+    button[title="View app source"] { display: none !important; }
+    button[aria-label="View app source"] { display: none !important; }
+
     @media (max-width: 640px) {
         .block-container {
             padding-left: 0.75rem;
@@ -646,6 +652,7 @@ with tab_dashboard:
             st.vega_lite_chart(
                 bar_df,
                 {
+                    "background": "#ffffff",
                     "layer": [
                         {
                             "mark": {"type": "bar", "cornerRadiusEnd": 4},
@@ -708,6 +715,7 @@ with tab_dashboard:
             st.vega_lite_chart(
                 pie_df,
                 {
+                    "background": "#ffffff",
                     "mark": {"type": "arc", "innerRadius": 0},
                     "encoding": {
                         "theta": {"field": "jumlah", "type": "quantitative"},
@@ -906,6 +914,7 @@ with tab_analysis:
                     st.vega_lite_chart(
                         comparison_df,
                         {
+                            "background": "#ffffff",
                             "layer": [
                                 {
                                     "transform": [{"filter": "datum.kategori === 'Komentar Lainnya'"}],
@@ -1084,6 +1093,7 @@ with tab_analysis:
                         st.vega_lite_chart(
                             sentiment_chart_df,
                             {
+                                "background": "#ffffff",
                                 "mark": {
                                     "type": "arc",
                                     "outerRadius": 150,
