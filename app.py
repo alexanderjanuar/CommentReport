@@ -166,11 +166,16 @@ st.markdown(
         }
     }
 
-    /* Hide GitHub-related toolbar buttons */
+    /* Hide GitHub-related toolbar buttons and Streamlit Cloud badges */
     [data-testid="stToolbarActions"] { display: none !important; }
     .stDeployButton { display: none !important; }
     button[title="View app source"] { display: none !important; }
     button[aria-label="View app source"] { display: none !important; }
+    footer { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    .viewerBadge_container__1QSob { display: none !important; }
+    .viewerBadge_link__1S137 { display: none !important; }
+    #stDecoration { display: none !important; }
 
     @media (max-width: 640px) {
         .block-container {
